@@ -9,9 +9,9 @@ import { CreateAssetGroupForm, AssetGroupFormData } from '@/components/asset-gro
 import { Button } from '@/components/ui/Button';
 import { ToastAlert } from '@/components/ui/ToastAlert';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
-import { AVAILABLE_ASSETS } from '@/components/asset-groups/AssetSelector';
+import { AVAILABLE_ASSETS, getAssetGroupContributionPax } from '@/components/asset-groups/AssetSelector';
 
-type View = 'empty' | 'create' | 'list' | 'archived' | 'edit';
+type View = 'empty' | 'create' | 'list' | 'edit';
 type Tab = 'venues' | 'assets' | 'asset-groups' | 'activities' | 'activity-packs' | 'translations';
 
 const TABS: { id: Tab; label: string }[] = [
@@ -38,18 +38,20 @@ function groupTypeToType(gt: 'consecutive' | 'fixed' | 'flexible'): AssetGroup['
 function assetsFromList(assetList: string) {
   const names = assetList.split(',').map((n) => n.trim()).filter(Boolean);
   return names.map((name, index) => {
-    const found = AVAILABLE_ASSETS.find(
-      (a) => a.name === name || a.name.startsWith(name) || name.startsWith(a.name)
-    );
+    const found = AVAILABLE_ASSETS.find((a) => a.name === name);
     if (found) return found;
-    return {
-      id: `asset-${index}-${name}`,
-      name,
-      group: 'By group',
-      capacity: '1 group',
-      pax: 5,
-    };
+    return byGroup(`asset-${index}-${name}`, name, 1, 2, 5);
   });
+}
+
+function byGroup(
+  id: string,
+  name: string,
+  groupsCount: number,
+  minPax: number,
+  maxPax: number
+) {
+  return { id, name, group: 'By group' as const, groupsCount, minPax, maxPax };
 }
 
 export default function Home() {
@@ -60,10 +62,6 @@ export default function Home() {
   const [nextId, setNextId] = useState(INITIAL_GROUPS.length + 1);
   const [listAlert, setListAlert] = useState<string | null>(null);
   const [groupPendingDelete, setGroupPendingDelete] = useState<AssetGroup | null>(null);
-
-  const visibleGroups = groups.filter((group) => group.status !== 'Archived');
-  const archivedGroups = groups.filter((group) => group.status === 'Archived');
-  const hasArchivedGroups = archivedGroups.length > 0;
 
   const handleCreateClick = () => {
     setEditingGroup(null);
@@ -82,7 +80,7 @@ export default function Home() {
                   status: data.isActive ? 'Active' : 'Inactive',
                   type: groupTypeToType(data.groupType!),
                   assetList: data.selectedAssets.map((a) => a.name).join(', '),
-                  combinedCapacity: `${data.selectedAssets.reduce((sum, a) => sum + a.pax, 0)} pax`,
+                  combinedCapacity: `${data.selectedAssets.reduce((sum, a) => sum + getAssetGroupContributionPax(a), 0)} pax`,
                 }
               : g
           )
@@ -96,7 +94,7 @@ export default function Home() {
         status: data.isActive ? 'Active' : 'Inactive',
         type: groupTypeToType(data.groupType!),
         assetList: data.selectedAssets.map((a) => a.name).join(', '),
-        combinedCapacity: `${data.selectedAssets.reduce((sum, a) => sum + a.pax, 0)} pax`,
+        combinedCapacity: `${data.selectedAssets.reduce((sum, a) => sum + getAssetGroupContributionPax(a), 0)} pax`,
       };
       setGroups((prev) => sortAssetGroups([...prev, newGroup]));
       setNextId((n) => n + 1);
@@ -108,12 +106,12 @@ export default function Home() {
 
   const handleCancel = () => {
     setEditingGroup(null);
-    setView(visibleGroups.length > 0 ? 'list' : 'empty');
+    setView(groups.length > 0 ? 'list' : 'empty');
   };
 
   const handleBackToHub = () => {
     setEditingGroup(null);
-    setView(visibleGroups.length > 0 ? 'list' : 'empty');
+    setView(groups.length > 0 ? 'list' : 'empty');
   };
 
   const handleEdit = (group: AssetGroup) => {
@@ -129,61 +127,17 @@ export default function Home() {
     if (!groupPendingDelete) return;
     const next = sortAssetGroups(groups.filter((g) => g.id !== groupPendingDelete.id));
     setGroups(next);
-    if (next.filter((g) => g.status !== 'Archived').length === 0 && view !== 'archived') {
+    if (next.length === 0) {
       setView('empty');
-    }
-    if (view === 'archived' && next.filter((g) => g.status === 'Archived').length === 0) {
-      setView(next.some((g) => g.status !== 'Archived') ? 'list' : 'empty');
     }
     setGroupPendingDelete(null);
   };
 
-  const handleArchive = (id: number) => {
-    setGroups((prev) =>
-      sortAssetGroups(
-        prev.map((g) => (g.id === id ? { ...g, status: 'Archived' as const } : g))
-      )
-    );
-    setListAlert('Asset group archived');
-  };
-
-  const handleUnarchive = (id: number) => {
-    const next = sortAssetGroups(
-      groups.map((g) => (g.id === id ? { ...g, status: 'Active' as const } : g))
-    );
-    setGroups(next);
-    if (view === 'archived' && !next.some((g) => g.status === 'Archived')) {
-      setView('list');
-    }
-  };
-
-  const handleArchiveFromEdit = () => {
-    if (!editingGroup) return;
-    const next = sortAssetGroups(
-      groups.map((g) => (g.id === editingGroup.id ? { ...g, status: 'Archived' as const } : g))
-    );
-    setGroups(next);
-    setEditingGroup(null);
-    setListAlert('Asset group archived');
-    setView(next.some((g) => g.status !== 'Archived') ? 'list' : 'empty');
-  };
-
-  const handleUnarchiveFromEdit = () => {
-    if (!editingGroup) return;
-    const next = sortAssetGroups(
-      groups.map((g) => (g.id === editingGroup.id ? { ...g, status: 'Active' as const } : g))
-    );
-    setGroups(next);
-    setEditingGroup(null);
-    setView('list');
-  };
-
   const handleReorder = (reordered: AssetGroup[]) => {
-    setGroups(sortAssetGroups([...reordered, ...archivedGroups]));
+    setGroups(sortAssetGroups(reordered));
   };
 
   const isCreateOrEdit = view === 'create' || view === 'edit';
-  const isArchivedView = view === 'archived';
 
   return (
     <div className="min-h-screen bg-white">
@@ -198,24 +152,18 @@ export default function Home() {
                 <p className="text-sm text-[#536B75]">
                   <button
                     type="button"
-                    onClick={() => setView(visibleGroups.length > 0 ? 'list' : 'empty')}
+                    onClick={() => setView(groups.length > 0 ? 'list' : 'empty')}
                     className="hover:underline text-[#0079CA]"
                   >
                     Hubs
                   </button>
                 </p>
                 <h1 className="text-2xl font-bold text-[#031419]">
-                  {isArchivedView ? 'Archived asset groups' : 'Funlab Chadstone'}
+                  Funlab Chadstone
                 </h1>
               </div>
               {(view === 'list' || view === 'empty') && (
                 <div className="flex items-center gap-3">
-                  {hasArchivedGroups && (
-                    <Button variant="secondary" onClick={() => setView('archived')} size="lg">
-                      <i className="fa-regular fa-box-open text-xs" />
-                      Archive
-                    </Button>
-                  )}
                   {view === 'list' && (
                     <Button onClick={handleCreateClick} size="lg">
                       <i className="fa-solid fa-plus text-xs" />
@@ -229,12 +177,6 @@ export default function Home() {
                     </Button>
                   )}
                 </div>
-              )}
-              {view === 'archived' && (
-                <Button variant="secondary" onClick={() => setView(visibleGroups.length > 0 ? 'list' : 'empty')} size="lg">
-                  <i className="fa-solid fa-angle-left text-xs" />
-                  Back to asset groups
-                </Button>
               )}
             </div>
           )}
@@ -273,28 +215,12 @@ export default function Home() {
                 />
               )}
               <AssetGroupList
-                groups={visibleGroups}
-                onCreateClick={handleCreateClick}
+                groups={groups}
                 onEdit={handleEdit}
                 onDelete={handleDeleteRequest}
-                onArchive={handleArchive}
-                onUnarchive={handleUnarchive}
                 onReorder={handleReorder}
               />
             </>
-          )}
-
-          {view === 'archived' && (
-            <AssetGroupList
-              groups={archivedGroups}
-              onCreateClick={handleCreateClick}
-              onEdit={handleEdit}
-              onDelete={handleDeleteRequest}
-              onArchive={handleArchive}
-              onUnarchive={handleUnarchive}
-              onReorder={handleReorder}
-              mode="archived"
-            />
           )}
 
           {isCreateOrEdit && (
@@ -312,8 +238,6 @@ export default function Home() {
               }
               onSave={handleSave}
               onCancel={handleCancel}
-              onArchive={editingGroup && editingGroup.status !== 'Archived' ? handleArchiveFromEdit : undefined}
-              onUnarchive={editingGroup && editingGroup.status === 'Archived' ? handleUnarchiveFromEdit : undefined}
               onBackToHub={handleBackToHub}
             />
           )}

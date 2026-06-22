@@ -7,7 +7,7 @@ export interface AssetGroup {
   id: number;
   order: number;
   name: string;
-  status: 'Active' | 'Inactive' | 'Archived';
+  status: 'Active' | 'Inactive';
   type: 'Inline' | 'Exact' | 'Flexible';
   assetList: string;
   combinedCapacity: string;
@@ -17,52 +17,40 @@ function isInactiveGroup(group: AssetGroup) {
   return group.status === 'Inactive';
 }
 
-function isArchivedGroup(group: AssetGroup) {
-  return group.status === 'Archived';
-}
-
 export function sortAssetGroups(groups: AssetGroup[]): AssetGroup[] {
   const active = groups
-    .filter((g) => !isInactiveGroup(g) && !isArchivedGroup(g))
+    .filter((g) => !isInactiveGroup(g))
     .sort((a, b) => a.order - b.order)
     .map((group, index) => ({ ...group, order: index + 1 }));
   const inactive = groups
     .filter((g) => isInactiveGroup(g))
     .sort((a, b) => a.order - b.order)
     .map((group) => ({ ...group, order: 0 }));
-  const archived = groups
-    .filter((g) => isArchivedGroup(g))
-    .map((group) => ({ ...group, order: 0 }));
-  return [...active, ...inactive, ...archived];
+  return [...active, ...inactive];
 }
 
 const INITIAL_GROUPS: AssetGroup[] = [
   { id: 1, order: 1, name: 'Base lanes', status: 'Active', type: 'Inline', assetList: 'Lane 1, Lane 2, Lane 3', combinedCapacity: '15 pax' },
   { id: 2, order: 2, name: 'Lanes VIP', status: 'Active', type: 'Exact', assetList: 'Lane 7, Lane 8', combinedCapacity: '10 pax' },
-  { id: 3, order: 3, name: 'F&B Tables', status: 'Active', type: 'Inline', assetList: 'Table 1, Table 2, Table 3 and 2...', combinedCapacity: '40 pax' },
+  { id: 3, order: 3, name: 'F&B Tables', status: 'Active', type: 'Inline', assetList: 'Table 1, Table 2, Table 3', combinedCapacity: '24 pax' },
   { id: 4, order: 4, name: 'Tables VIP', status: 'Active', type: 'Exact', assetList: 'Table 8, Table 9', combinedCapacity: '24 pax' },
   { id: 5, order: 0, name: 'First floor lanes', status: 'Inactive', type: 'Inline', assetList: 'Lane 4, Lane 5, Lane 6', combinedCapacity: '15 pax' },
 ];
 
 interface AssetGroupListProps {
   groups: AssetGroup[];
-  onCreateClick: () => void;
   onEdit: (group: AssetGroup) => void;
   onDelete: (id: number) => void;
-  onArchive: (id: number) => void;
-  onUnarchive: (id: number) => void;
   onReorder: (groups: AssetGroup[]) => void;
-  mode?: 'default' | 'archived';
 }
 
-export function AssetGroupList({ groups, onCreateClick, onEdit, onDelete, onArchive, onUnarchive, onReorder, mode = 'default' }: AssetGroupListProps) {
+export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGroupListProps) {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [page] = useState(1);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dropTargetId, setDropTargetId] = useState<number | null>(null);
   const dragNode = useRef<number | null>(null);
 
-  const isArchivedMode = mode === 'archived';
   const total = groups.length;
   const perPage = 10;
 
@@ -70,7 +58,7 @@ export function AssetGroupList({ groups, onCreateClick, onEdit, onDelete, onArch
 
   // Move a group up or down by one step (active groups only)
   const moveGroup = (id: number, dir: 'up' | 'down') => {
-    const activeGroups = groups.filter((g) => !isInactiveGroup(g) && !isArchivedGroup(g));
+    const activeGroups = groups.filter((g) => !isInactiveGroup(g));
     const idx = activeGroups.findIndex((g) => g.id === id);
     if (idx === -1) return;
     const target = dir === 'up' ? idx - 1 : idx + 1;
@@ -96,7 +84,7 @@ export function AssetGroupList({ groups, onCreateClick, onEdit, onDelete, onArch
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const target = groups.find((g) => g.id === id);
-    if (id !== dragNode.current && target && !isInactiveGroup(target) && !isArchivedGroup(target)) {
+    if (id !== dragNode.current && target && !isInactiveGroup(target)) {
       setDropTargetId(id);
     }
   };
@@ -106,7 +94,7 @@ export function AssetGroupList({ groups, onCreateClick, onEdit, onDelete, onArch
     const fromId = dragNode.current;
     if (!fromId || fromId === targetId) return;
 
-    const activeGroups = groups.filter((g) => !isInactiveGroup(g) && !isArchivedGroup(g));
+    const activeGroups = groups.filter((g) => !isInactiveGroup(g));
     const fromIdx = activeGroups.findIndex((g) => g.id === fromId);
     const toIdx = activeGroups.findIndex((g) => g.id === targetId);
     if (fromIdx === -1 || toIdx === -1) return;
@@ -151,12 +139,8 @@ export function AssetGroupList({ groups, onCreateClick, onEdit, onDelete, onArch
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#CCD2D8]">
-              {!isArchivedMode && (
-                <>
-                  <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-14">Order</th>
-                  <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-16">Prio</th>
-                </>
-              )}
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-14">Order</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-16">Prio</th>
               <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419]">Name</th>
               <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-24">Status</th>
               <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-24">Type</th>
@@ -168,8 +152,7 @@ export function AssetGroupList({ groups, onCreateClick, onEdit, onDelete, onArch
           <tbody>
             {groups.map((group) => {
               const inactive = isInactiveGroup(group);
-              const archived = isArchivedGroup(group);
-              const canReorder = !inactive && !archived && !isArchivedMode;
+              const canReorder = !inactive;
               const isDragging = draggingId === group.id;
               const isDropTarget = dropTargetId === group.id;
 
@@ -189,50 +172,46 @@ export function AssetGroupList({ groups, onCreateClick, onEdit, onDelete, onArch
                     'cursor-pointer',
                   ].join(' ')}
                 >
-                  {!isArchivedMode && (
-                    <>
-                      {/* Order column: arrows + drag affordance */}
-                      <td
-                        className="px-3 py-[14px] select-none"
-                        onClick={(e) => e.stopPropagation()}
+                  {/* Order column: arrows + drag affordance */}
+                  <td
+                    className="px-3 py-[14px] select-none"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {canReorder && (
+                      <div
+                        className="flex items-center gap-1 group/order"
+                        title="Drag to reorder"
                       >
-                        {canReorder && (
-                          <div
-                            className="flex items-center gap-1 group/order"
-                            title="Drag to reorder"
+                        {/* Drag handle affordance — visible on hover of the cell */}
+                        <div
+                          className={[
+                            'flex flex-col gap-0.5 transition-colors',
+                            draggingId === null ? 'cursor-grab active:cursor-grabbing' : 'cursor-grabbing',
+                          ].join(' ')}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => moveGroup(group.id, 'up')}
+                            className="text-[#CCD2D8] group-hover/order:text-[#536B75] hover:!text-[#282828] transition-colors disabled:opacity-30"
+                            disabled={group.order === 1}
+                            title="Move up"
                           >
-                            {/* Drag handle affordance — visible on hover of the cell */}
-                            <div
-                              className={[
-                                'flex flex-col gap-0.5 transition-colors',
-                                draggingId === null ? 'cursor-grab active:cursor-grabbing' : 'cursor-grabbing',
-                              ].join(' ')}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => moveGroup(group.id, 'up')}
-                                className="text-[#CCD2D8] group-hover/order:text-[#536B75] hover:!text-[#282828] transition-colors disabled:opacity-30"
-                                disabled={group.order === 1}
-                                title="Move up"
-                              >
-                                <i className="fa-solid fa-angle-up text-xs block" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveGroup(group.id, 'down')}
-                                className="text-[#CCD2D8] group-hover/order:text-[#536B75] hover:!text-[#282828] transition-colors disabled:opacity-30"
-                                disabled={groups.filter((g) => !isInactiveGroup(g) && !isArchivedGroup(g)).at(-1)?.id === group.id}
-                                title="Move down"
-                              >
-                                <i className="fa-solid fa-angle-down text-xs block" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-[14px] text-sm text-[#031419]">{inactive ? '–' : group.order}</td>
-                    </>
-                  )}
+                            <i className="fa-solid fa-angle-up text-xs block" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveGroup(group.id, 'down')}
+                            className="text-[#CCD2D8] group-hover/order:text-[#536B75] hover:!text-[#282828] transition-colors disabled:opacity-30"
+                            disabled={groups.filter((g) => !isInactiveGroup(g)).at(-1)?.id === group.id}
+                            title="Move down"
+                          >
+                            <i className="fa-solid fa-angle-down text-xs block" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-[14px] text-sm text-[#031419]">{inactive ? '–' : group.order}</td>
                   <td className="px-3 py-[14px] text-sm font-semibold text-[#031419]">{group.name}</td>
                   <td className="px-3 py-[14px]">
                     <Badge status={group.status} />
@@ -263,26 +242,6 @@ export function AssetGroupList({ groups, onCreateClick, onEdit, onDelete, onArch
                             <i className="fa-solid fa-pen-to-square text-[#536B75] w-4" />
                             Edit
                           </button>
-                          {!archived && (
-                            <button
-                              type="button"
-                              onClick={() => { onArchive(group.id); setOpenMenuId(null); }}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#282828] hover:bg-[#F2F3F3] transition-colors"
-                            >
-                              <i className="fa-regular fa-box-open text-[#536B75] w-4" />
-                              Archive
-                            </button>
-                          )}
-                          {archived && (
-                            <button
-                              type="button"
-                              onClick={() => { onUnarchive(group.id); setOpenMenuId(null); }}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#282828] hover:bg-[#F2F3F3] transition-colors"
-                            >
-                              <i className="fa-solid fa-box-open text-[#536B75] w-4" />
-                              Unarchive
-                            </button>
-                          )}
                           <button
                             type="button"
                             onClick={() => { onDelete(group.id); setOpenMenuId(null); }}

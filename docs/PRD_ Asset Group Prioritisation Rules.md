@@ -275,6 +275,15 @@ A configured set of assets that should be considered together by the allocation 
 7. Disabled groups are ignored by the allocation engine.  
 8. Deleted groups should not affect past bookings.
 
+## **Asset group lifecycle**
+
+Asset groups have two lifecycle actions only:
+
+1. **Enable or disable:** controlled by the status switch inside the asset group. Disabled groups remain stored and editable, but the allocation engine ignores them. This is the reversible way to stop a group from being used.  
+2. **Delete:** permanently removes the group configuration. Deleted groups are not recoverable from the configuration UI and must not affect existing bookings.
+
+There is no archived state or archive list in V1. If a group should be kept for later, users should disable it. If it is no longer needed, users should delete it.
+
 # **Preview before save**
 
 Before saving, the UI should show:
@@ -385,7 +394,7 @@ No customer facing surfaces need to change for V1.
 7. A single asset can belong to multiple groups.  
 8. The system calculates group capacity as the sum of included asset capacities.  
 9. The user can preview the group before saving.  
-10. The user can save, edit, disable or delete a group.
+10. The user can save, edit, enable, disable or delete a group.
 
 ## **Allocation**
 
@@ -476,6 +485,5 @@ An asset can belong to multiple groups, which is needed, but may create overlapp
 2. Should priority be stored at group level only, or should there also be asset level ordering inside the group?  
 3. How should deterministic tie breaking work if two valid groups have the same priority and same capacity?  
 4. What happens to existing future bookings if asset groups are edited or deleted?  
-5. Should disabled groups remain stored for audit or can they be hard deleted?  
-6. Does the engine already expose the reason why a group candidate was skipped?
+5. Does the engine already expose the reason why a group candidate was skipped?
 

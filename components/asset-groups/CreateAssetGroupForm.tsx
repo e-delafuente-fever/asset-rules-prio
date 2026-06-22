@@ -26,8 +26,6 @@ interface CreateAssetGroupFormProps {
   initialData?: Partial<AssetGroupFormData>;
   onSave: (data: AssetGroupFormData) => void;
   onCancel: () => void;
-  onArchive?: () => void;
-  onUnarchive?: () => void;
   onBackToHub?: () => void;
 }
 
@@ -56,7 +54,7 @@ function assetsEqual(a: Asset[], b: Asset[]) {
   return a.every((asset, i) => asset.id === b[i]?.id);
 }
 
-export function CreateAssetGroupForm({ isEdit = false, initialData, onSave, onCancel, onArchive, onUnarchive, onBackToHub }: CreateAssetGroupFormProps) {
+export function CreateAssetGroupForm({ isEdit = false, initialData, onSave, onCancel, onBackToHub }: CreateAssetGroupFormProps) {
   const [name, setName] = useState(initialData?.name ?? '');
   const [isActive, setIsActive] = useState(initialData?.isActive ?? true);
   const [groupType, setGroupType] = useState<GroupType>(initialData?.groupType ?? null);
@@ -206,20 +204,7 @@ export function CreateAssetGroupForm({ isEdit = false, initialData, onSave, onCa
 
       {/* Footer actions */}
       <div className="fixed bottom-0 left-[256px] right-0 bg-white border-t border-[#CCD2D8] px-8 py-4 flex items-center justify-between gap-3 z-30">
-        <div>
-          {isEdit && onArchive && (
-            <Button variant="secondary" onClick={onArchive}>
-              <i className="fa-regular fa-box-open text-xs" />
-              Archive
-            </Button>
-          )}
-          {isEdit && onUnarchive && (
-            <Button variant="secondary" onClick={onUnarchive}>
-              <i className="fa-solid fa-box-open text-xs" />
-              Unarchive
-            </Button>
-          )}
-        </div>
+        <div />
         <div className="flex items-center justify-end gap-3">
           <Button variant="secondary" onClick={onCancel}>
             Cancel

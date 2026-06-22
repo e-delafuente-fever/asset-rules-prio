@@ -53,7 +53,7 @@ The behaviour is stored as **two data axes**, not a type discriminator: an all-o
 | `requires_all_members` | bool, default `false` | **Atomicity axis.** `true` → the group is all-or-nothing (the `EXACT` preset): the only candidate is the full member set, and a failed attempt is terminal (no fallback — see §3). `false` → sub-parts of the group may be used. |
 | `assets_hub` | FK → `AssetsHub`, CASCADE | Venue scope — the hub whose assets this group groups, and the **single** place the hub is referenced in this design. |
 | `priority` | positive int | Order in which groups are tried during booking; **lower = tried first**. Not forced unique — ties broken deterministically by `id` (see algorithm §3). |
-| `enabled` | bool, default true | Disabled groups are invisible to the engine. Acts as the safe kill-switch per group. |
+| `enabled` | bool, default true | Disabled groups are invisible to the engine. Acts as the safe kill-switch per group and the only reversible deactivation path. |
 | `created_at` / `updated_at` | timestamps | Audit. |
 | `created_by` / `updated_by` | FK → backoffice user, nullable | Audit (PRD requirement). |
 
@@ -207,7 +207,7 @@ Emit a structured log/analytics event per reservation: groups evaluated, group c
 
 ### 4. APIs (back-office, B2B)
 
-Conventions follow the existing hub endpoints in [`assets_hub_assets_view.py`](https://github.com/Feverup/fever2/blob/master/src/b2b/infrastructure/assets_hub/views/assets_hub_assets_view.py): controller prefix `/b2b/3.0/partners`, `partner_that([...])` auth, `B2BApiResponse` envelope (`data` on success), `400` for validation errors / `404` for unknown partner-hub-group. Disabling (`PATCH enabled=false`, 4.3) is the reversible alternative to deletion (4.4).
+Conventions follow the existing hub endpoints in [`assets_hub_assets_view.py`](https://github.com/Feverup/fever2/blob/master/src/b2b/infrastructure/assets_hub/views/assets_hub_assets_view.py): controller prefix `/b2b/3.0/partners`, `partner_that([...])` auth, `B2BApiResponse` envelope (`data` on success), `400` for validation errors / `404` for unknown partner-hub-group. Disabling (`PATCH enabled=false`, 4.3) is the reversible alternative to deletion (4.4); there is no archived status or archive endpoint.
 
 #### 4.1 Get all asset groups of a hub
 
@@ -309,6 +309,7 @@ Semantics:
 
 - **Atomic** — all listed groups are deleted, or none: any id unknown / not belonging to `{hub_id}` → `404`, nothing deleted (prevents a half-applied cleanup of a venue reconfiguration).
 - **Hard delete** — safe by design: bookings hold no reference to groups (allocation is ephemeral, §3), so existing `BookedSlot`s are untouched. Membership rows cascade.
+- **No archive fallback** — callers that need a reversible action must send `PATCH enabled=false` instead of deleting.
 
 Response `200`:
 

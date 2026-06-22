@@ -1,26 +1,84 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/Button';
 
-export interface Asset {
-  id: string;
-  name: string;
-  group: string;
-  capacity: string;
-  pax: number;
+export type Asset =
+  | {
+      id: string;
+      name: string;
+      group: 'By group';
+      groupsCount: number;
+      minPax: number;
+      maxPax: number;
+    }
+  | {
+      id: string;
+      name: string;
+      group: 'By people';
+      maxCapacity: number;
+    };
+
+export function formatByGroupCapacity(groupsCount: number, minPax: number, maxPax: number): string {
+  const label = groupsCount === 1 ? 'group' : 'groups';
+  return `${groupsCount} ${label} (${minPax}-${maxPax} pax)`;
+}
+
+export function formatAssetCapacity(asset: Asset): string {
+  if (asset.group === 'By people') {
+    return `${asset.maxCapacity} pax`;
+  }
+  return formatByGroupCapacity(asset.groupsCount, asset.minPax, asset.maxPax);
+}
+
+export function formatAssetSubtitle(asset: Asset): string {
+  return `${asset.group} · ${formatAssetCapacity(asset)}`;
+}
+
+/** Max pax contributed when an asset is included in an asset group (sum of per-asset max). */
+export function getAssetGroupContributionPax(asset: Asset): number {
+  if (asset.group === 'By people') {
+    return asset.maxCapacity;
+  }
+  return asset.groupsCount * asset.maxPax;
+}
+
+function byGroup(
+  id: string,
+  name: string,
+  groupsCount: number,
+  minPax: number,
+  maxPax: number
+): Extract<Asset, { group: 'By group' }> {
+  return { id, name, group: 'By group', groupsCount, minPax, maxPax };
+}
+
+function byPeople(id: string, name: string, maxCapacity: number): Extract<Asset, { group: 'By people' }> {
+  return { id, name, group: 'By people', maxCapacity };
 }
 
 export const AVAILABLE_ASSETS: Asset[] = [
-  { id: '1', name: 'Bowling line 1', group: 'By group', capacity: '1 group (2-6 pax)', pax: 6 },
-  { id: '2', name: 'Bowling line 2', group: 'By group', capacity: '1 group (2-6 pax)', pax: 6 },
-  { id: '3', name: 'Bowling line 3', group: 'By group', capacity: '1 group (2-6 pax)', pax: 6 },
-  { id: '4', name: 'Bowling line 4', group: 'By group', capacity: '1 group (2-6 pax)', pax: 6 },
-  { id: '5', name: 'Bowling line 5', group: 'By group', capacity: '1 group (2-6 pax)', pax: 6 },
-  { id: '6', name: 'Bowling line 6', group: 'By group', capacity: '1 group (2-6 pax)', pax: 6 },
-  { id: '7', name: 'Lane 1', group: 'By group', capacity: '1 group (2-8 pax)', pax: 8 },
-  { id: '8', name: 'Lane 2', group: 'By group', capacity: '1 group (2-8 pax)', pax: 8 },
-  { id: '9', name: 'Table 1', group: 'By people', capacity: '1 table (4-6 pax)', pax: 6 },
-  { id: '10', name: 'Table 2', group: 'By people', capacity: '1 table (4-6 pax)', pax: 6 },
+  byGroup('1', 'Bowling line 1', 1, 2, 5),
+  byGroup('2', 'Bowling line 2', 1, 2, 5),
+  byGroup('3', 'Bowling line 3', 1, 2, 5),
+  byGroup('4', 'Bowling line 4', 1, 2, 5),
+  byGroup('5', 'Bowling line 5', 1, 2, 5),
+  byGroup('6', 'Bowling line 6', 1, 2, 5),
+  byGroup('7', 'Lane 1', 1, 2, 5),
+  byGroup('8', 'Lane 2', 1, 2, 5),
+  byGroup('9', 'Lane 3', 1, 2, 5),
+  byGroup('10', 'Lane 4', 1, 2, 5),
+  byGroup('11', 'Lane 5', 1, 2, 5),
+  byGroup('12', 'Lane 6', 1, 2, 5),
+  byGroup('13', 'Lane 7', 1, 2, 5),
+  byGroup('14', 'Lane 8', 1, 2, 5),
+  byGroup('15', 'Table 1', 1, 2, 8),
+  byGroup('16', 'Table 2', 1, 2, 8),
+  byGroup('17', 'Table 3', 1, 2, 8),
+  byGroup('18', 'Table 8', 1, 2, 12),
+  byGroup('19', 'Table 9', 1, 2, 12),
+  byPeople('20', 'Trampoline area', 50),
+  byPeople('21', 'Soft play zone', 30),
 ];
 
 interface AssetSelectorProps {
@@ -29,7 +87,10 @@ interface AssetSelectorProps {
   groupType: 'consecutive' | 'fixed' | 'flexible';
 }
 
-type FilterGroup = 'By group' | 'By people' | 'All';
+type FilterGroup = 'By group' | 'By people';
+
+const FILTER_OPTIONS: FilterGroup[] = ['By group', 'By people'];
+const FILTER_LABEL = 'Filter by groups or by people';
 
 export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: AssetSelectorProps) {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -37,6 +98,7 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
   const [filterValue, setFilterValue] = useState<FilterGroup>('By group');
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [assetPendingTypeChange, setAssetPendingTypeChange] = useState<Asset | null>(null);
   const dragAsset = useRef<string | null>(null);
   const filterRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -57,20 +119,26 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [filterOpen, searchOpen]);
 
-  const totalPax = selectedAssets.reduce((sum, a) => sum + a.pax, 0);
+  const totalPax = selectedAssets.reduce((sum, a) => sum + getAssetGroupContributionPax(a), 0);
   const isConsecutive = groupType === 'consecutive';
 
-  const filteredAssets = AVAILABLE_ASSETS.filter(
-    (a) => filterValue === 'All' || a.group === filterValue
-  );
+  const filteredAssets = AVAILABLE_ASSETS.filter((a) => a.group === filterValue);
 
   const toggleAsset = (asset: Asset) => {
     const exists = selectedAssets.find((a) => a.id === asset.id);
     if (exists) {
       onSelectedChange(selectedAssets.filter((a) => a.id !== asset.id));
+    } else if (selectedAssets.some((selectedAsset) => selectedAsset.group !== asset.group)) {
+      setAssetPendingTypeChange(asset);
     } else {
       onSelectedChange([...selectedAssets, asset]);
     }
+  };
+
+  const confirmCapacityTypeChange = () => {
+    if (!assetPendingTypeChange) return;
+    onSelectedChange([assetPendingTypeChange]);
+    setAssetPendingTypeChange(null);
   };
 
   const moveAsset = (idx: number, dir: 'up' | 'down') => {
@@ -128,24 +196,25 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
 
       {/* Filter dropdown */}
       <div className="relative mt-4" ref={filterRef}>
+        <label className="block text-sm font-semibold text-[#282828] mb-2">{FILTER_LABEL}</label>
         <button
           type="button"
           onClick={() => { setFilterOpen(!filterOpen); setSearchOpen(false); }}
           className="w-full flex items-center justify-between px-4 py-3 border border-[#CCD2D8] rounded-lg bg-white text-sm text-[#282828] hover:border-[#536B75] transition-colors"
         >
-          <span>{filterValue === 'All' ? 'Filter by groups or by people' : filterValue}</span>
+          <span>{filterValue}</span>
           <i className="fa-solid fa-chevron-down text-[#536B75] text-xs" />
         </button>
         {filterOpen && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#CCD2D8] rounded-lg shadow-lg z-10 overflow-hidden">
-            {(['By group', 'By people', 'All'] as FilterGroup[]).map((opt) => (
+            {FILTER_OPTIONS.map((opt) => (
               <button
                 key={opt}
                 type="button"
                 onClick={() => { setFilterValue(opt); setFilterOpen(false); }}
                 className={`w-full text-left px-4 py-2.5 text-sm hover:bg-[#F2F3F3] transition-colors ${filterValue === opt ? 'text-[#0079CA] font-semibold' : 'text-[#282828]'}`}
               >
-                {opt === 'All' ? 'Filter by groups or by people' : opt}
+                {opt}
               </button>
             ))}
           </div>
@@ -180,7 +249,7 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
                   </div>
                   <div>
                     <p className="text-sm font-medium text-[#282828]">{asset.name}</p>
-                    <p className="text-xs text-[#536B75]">{asset.group} · {asset.capacity}</p>
+                    <p className="text-xs text-[#536B75]">{formatAssetSubtitle(asset)}</p>
                   </div>
                 </button>
               );
@@ -270,7 +339,7 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
                       {/* Text */}
                       <div className="flex-1 min-w-0">
                         <p className="text-[14px] font-semibold leading-[20px] text-[#031419] truncate">{asset.name}</p>
-                        <p className="text-[12px] leading-[16px] text-[#536B75] truncate">{asset.group} · {asset.capacity}</p>
+                        <p className="text-[12px] leading-[16px] text-[#536B75] truncate">{formatAssetSubtitle(asset)}</p>
                       </div>
 
                       {/* Trailing: remove button */}
@@ -301,6 +370,61 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
           </>
         )}
       </div>
+
+      {assetPendingTypeChange && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(6,35,44,0.88)] p-14">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="capacity-type-change-title"
+            className="relative flex w-full max-w-[520px] flex-col items-end gap-6 rounded-2xl bg-white p-6 shadow-[0_24px_24px_rgba(0,70,121,0.2)]"
+          >
+            <div className="flex h-10 max-h-10 w-full flex-col items-center gap-4">
+              <div className="flex w-full items-center justify-center px-8">
+                <h2
+                  id="capacity-type-change-title"
+                  className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-center text-[16px] font-bold leading-5 text-[#031419]"
+                >
+                  Change capacity type?
+                </h2>
+              </div>
+              <div className="h-px w-full bg-[#CCD2D8]" />
+            </div>
+
+            <p className="w-full text-center text-[16px] leading-6 text-[#031419]">
+              Adding a {assetPendingTypeChange.group} asset will remove the assets currently selected in this list. Do you want to continue?
+            </p>
+
+            <div className="flex w-full gap-4">
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => setAssetPendingTypeChange(null)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={confirmCapacityTypeChange}
+                className="flex-1"
+              >
+                Continue
+              </Button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setAssetPendingTypeChange(null)}
+              aria-label="Close"
+              className="absolute right-3.5 top-3.5 flex h-11 w-11 items-center justify-center text-[#031419] transition-colors hover:text-[#536B75]"
+            >
+              <i className="fa-solid fa-xmark text-sm" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
