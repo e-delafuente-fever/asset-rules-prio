@@ -9,8 +9,8 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: 'Asset-Based Hub – Asset Group Prioritization',
-  description: 'Mockup for asset group prioritization rules',
+  title: 'Asset-Based Hub - Allocation Rules',
+  description: 'Mockup for allocation rules',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

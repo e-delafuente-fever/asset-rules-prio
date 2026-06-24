@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from './Button';
+import { assetGroupsCopy } from '@/content/asset-groups';
 
 interface DeleteConfirmationModalProps {
   title: string;
@@ -13,7 +14,7 @@ interface DeleteConfirmationModalProps {
 export function DeleteConfirmationModal({
   title,
   description,
-  confirmLabel = 'Delete group',
+  confirmLabel = assetGroupsCopy.modals.deleteRule.confirmLabel,
   onCancel,
   onConfirm,
 }: DeleteConfirmationModalProps) {
@@ -43,7 +44,7 @@ export function DeleteConfirmationModal({
 
         <div className="flex w-full gap-4">
           <Button variant="secondary" size="lg" onClick={onCancel} className="flex-1">
-            Cancel
+            {assetGroupsCopy.actions.cancel}
           </Button>
           <Button
             variant="primary"

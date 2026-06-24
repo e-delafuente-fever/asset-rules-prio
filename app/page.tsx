@@ -9,18 +9,19 @@ import { CreateAssetGroupForm, AssetGroupFormData } from '@/components/asset-gro
 import { Button } from '@/components/ui/Button';
 import { ToastAlert } from '@/components/ui/ToastAlert';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
+import { assetGroupsCopy } from '@/content/asset-groups';
 import { AVAILABLE_ASSETS, getAssetGroupContributionPax } from '@/components/asset-groups/AssetSelector';
 
 type View = 'empty' | 'create' | 'list' | 'edit';
 type Tab = 'venues' | 'assets' | 'asset-groups' | 'activities' | 'activity-packs' | 'translations';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'venues', label: 'Venues' },
-  { id: 'assets', label: 'Assets' },
-  { id: 'asset-groups', label: 'Asset groups' },
-  { id: 'activities', label: 'Activities' },
-  { id: 'activity-packs', label: 'Activity packs' },
-  { id: 'translations', label: 'Translations' },
+  { id: 'venues', label: assetGroupsCopy.navigation.tabs.venues },
+  { id: 'assets', label: assetGroupsCopy.navigation.tabs.assets },
+  { id: 'asset-groups', label: assetGroupsCopy.navigation.tabs.allocationRules },
+  { id: 'activities', label: assetGroupsCopy.navigation.tabs.activities },
+  { id: 'activity-packs', label: assetGroupsCopy.navigation.tabs.activityPacks },
+  { id: 'translations', label: assetGroupsCopy.navigation.tabs.translations },
 ];
 
 function typeToGroupType(type: AssetGroup['type']): 'consecutive' | 'fixed' | 'flexible' {
@@ -86,6 +87,7 @@ export default function Home() {
           )
         )
       );
+      setListAlert(assetGroupsCopy.list.updatedToast);
     } else {
       const newGroup: AssetGroup = {
         id: nextId,
@@ -98,18 +100,13 @@ export default function Home() {
       };
       setGroups((prev) => sortAssetGroups([...prev, newGroup]));
       setNextId((n) => n + 1);
-      setListAlert('Asset group created');
+      setListAlert(assetGroupsCopy.list.createdToast);
     }
     setEditingGroup(null);
     setView('list');
   };
 
   const handleCancel = () => {
-    setEditingGroup(null);
-    setView(groups.length > 0 ? 'list' : 'empty');
-  };
-
-  const handleBackToHub = () => {
     setEditingGroup(null);
     setView(groups.length > 0 ? 'list' : 'empty');
   };
@@ -127,8 +124,11 @@ export default function Home() {
     if (!groupPendingDelete) return;
     const next = sortAssetGroups(groups.filter((g) => g.id !== groupPendingDelete.id));
     setGroups(next);
+    setEditingGroup(null);
     if (next.length === 0) {
       setView('empty');
+    } else if (view === 'edit') {
+      setView('list');
     }
     setGroupPendingDelete(null);
   };
@@ -159,7 +159,7 @@ export default function Home() {
                   </button>
                 </p>
                 <h1 className="text-2xl font-bold text-[#031419]">
-                  Funlab Chadstone
+                  {assetGroupsCopy.navigation.hubName}
                 </h1>
               </div>
               {(view === 'list' || view === 'empty') && (
@@ -167,12 +167,12 @@ export default function Home() {
                   {view === 'list' && (
                     <Button onClick={handleCreateClick} size="lg">
                       <i className="fa-solid fa-plus text-xs" />
-                      Create asset group
+                      {assetGroupsCopy.actions.createRule}
                     </Button>
                   )}
                   {view === 'empty' && (
                     <Button variant="secondary" size="lg">
-                      Actions
+                      {assetGroupsCopy.actions.actions}
                       <i className="fa-solid fa-chevron-down text-xs" />
                     </Button>
                   )}
@@ -238,15 +238,15 @@ export default function Home() {
               }
               onSave={handleSave}
               onCancel={handleCancel}
-              onBackToHub={handleBackToHub}
+              onDelete={editingGroup ? () => handleDeleteRequest(editingGroup.id) : undefined}
             />
           )}
 
           {groupPendingDelete && (
             <DeleteConfirmationModal
-              title="Delete asset group?"
-              description="Deleting this group won't affect existing bookings. Future allocations will no longer consider this group."
-              confirmLabel="Delete group"
+              title={assetGroupsCopy.modals.deleteRule.title}
+              description={assetGroupsCopy.modals.deleteRule.description}
+              confirmLabel={assetGroupsCopy.modals.deleteRule.confirmLabel}
               onCancel={() => setGroupPendingDelete(null)}
               onConfirm={handleConfirmDelete}
             />

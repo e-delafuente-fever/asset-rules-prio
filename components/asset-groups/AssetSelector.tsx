@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
+import { assetGroupsCopy } from '@/content/asset-groups';
 
 export type Asset =
   | {
@@ -90,7 +91,6 @@ interface AssetSelectorProps {
 type FilterGroup = 'By group' | 'By people';
 
 const FILTER_OPTIONS: FilterGroup[] = ['By group', 'By people'];
-const FILTER_LABEL = 'Filter by groups or by people';
 
 export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: AssetSelectorProps) {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -188,15 +188,15 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="mb-1">
-        <h3 className="text-sm font-semibold text-[#282828]">Select assets</h3>
+        <h3 className="text-sm font-semibold text-[#282828]">{assetGroupsCopy.selector.title}</h3>
         <p className="text-xs text-[#536B75] mt-0.5">
-          Choose the assets that belong to this group. At least 2 assets are required.
+          {assetGroupsCopy.selector.description}
         </p>
       </div>
 
       {/* Filter dropdown */}
       <div className="relative mt-4" ref={filterRef}>
-        <label className="block text-sm font-semibold text-[#282828] mb-2">{FILTER_LABEL}</label>
+        <label className="block text-sm font-semibold text-[#282828] mb-2">{assetGroupsCopy.selector.filterLabel}</label>
         <button
           type="button"
           onClick={() => { setFilterOpen(!filterOpen); setSearchOpen(false); }}
@@ -229,7 +229,7 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
           className="w-full flex items-center justify-between px-4 py-3 border border-[#CCD2D8] rounded-lg bg-white text-sm hover:border-[#536B75] transition-colors"
         >
           <span className={selectedAssets.length > 0 ? 'text-[#282828]' : 'text-[#536B75]'}>
-            {selectedAssets.length > 0 ? `${selectedAssets.length} assets selected` : 'Search assets by name'}
+            {selectedAssets.length > 0 ? assetGroupsCopy.selector.selectedAssets(selectedAssets.length) : assetGroupsCopy.selector.searchPlaceholder}
           </span>
           <i className="fa-solid fa-chevron-down text-[#536B75] text-xs" />
         </button>
@@ -262,9 +262,9 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
       <div className="flex-1 mt-3 border border-[#CCD2D8] rounded-2xl overflow-hidden flex flex-col">
         {selectedAssets.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-10 text-center px-4">
-            <p className="text-sm font-semibold text-[#031419]">No assets selected</p>
+            <p className="text-sm font-semibold text-[#031419]">{assetGroupsCopy.selector.noAssetsTitle}</p>
             <p className="text-xs text-[#536B75] mt-1">
-              Selected assets will be used to calculate the group&apos;s total capacity
+              {assetGroupsCopy.selector.noAssetsDescription}
             </p>
           </div>
         ) : (
@@ -274,9 +274,9 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
               <div className="bg-[#EFF6FF] border-b border-[#BFDBFE] px-4 py-3 flex items-start gap-2">
                 <i className="fa-solid fa-circle-info text-[#0079CA] text-sm mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-[#1E40AF]">Asset order</p>
+                  <p className="text-sm font-semibold text-[#1E40AF]">{assetGroupsCopy.selector.inOrderAlert.title}</p>
                   <p className="text-xs text-[#1D4ED8]">
-                    Drag items or use the arrows to set the order. Bookings will use assets in this order whenever possible.
+                    {assetGroupsCopy.selector.inOrderAlert.description}
                   </p>
                 </div>
               </div>
@@ -364,8 +364,8 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
 
             {/* Footer */}
             <div className="px-4 py-2 border-t border-[#CCD2D8] flex items-center justify-between bg-white">
-              <p className="text-xs text-[#536B75]">{selectedAssets.length} assets selected</p>
-              <p className="text-xs text-[#536B75]">Total capacity: {totalPax} pax</p>
+              <p className="text-xs text-[#536B75]">{assetGroupsCopy.selector.selectedAssets(selectedAssets.length)}</p>
+              <p className="text-xs text-[#536B75]">{assetGroupsCopy.selector.totalCapacity(totalPax)}</p>
             </div>
           </>
         )}
@@ -385,32 +385,32 @@ export function AssetSelector({ selectedAssets, onSelectedChange, groupType }: A
                   id="capacity-type-change-title"
                   className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-center text-[16px] font-bold leading-5 text-[#031419]"
                 >
-                  Change capacity type?
+                  {assetGroupsCopy.modals.bookingTypeChange.title}
                 </h2>
               </div>
               <div className="h-px w-full bg-[#CCD2D8]" />
             </div>
 
             <p className="w-full text-center text-[16px] leading-6 text-[#031419]">
-              Adding a {assetPendingTypeChange.group} asset will remove the assets currently selected in this list. Do you want to continue?
+              {assetGroupsCopy.modals.bookingTypeChange.description}
             </p>
 
             <div className="flex w-full gap-4">
               <Button
                 variant="secondary"
                 size="lg"
-                onClick={() => setAssetPendingTypeChange(null)}
+                onClick={confirmCapacityTypeChange}
                 className="flex-1"
               >
-                Cancel
+                {assetGroupsCopy.modals.bookingTypeChange.changeTypeLabel}
               </Button>
               <Button
                 variant="primary"
                 size="lg"
-                onClick={confirmCapacityTypeChange}
+                onClick={() => setAssetPendingTypeChange(null)}
                 className="flex-1"
               >
-                Continue
+                {assetGroupsCopy.modals.bookingTypeChange.keepTypeLabel}
               </Button>
             </div>
 

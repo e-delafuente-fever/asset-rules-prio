@@ -2,12 +2,13 @@
 
 import { useState, useRef } from 'react';
 import { Badge } from '@/components/ui/Badge';
+import { assetGroupsCopy } from '@/content/asset-groups';
 
 export interface AssetGroup {
   id: number;
   order: number;
   name: string;
-  status: 'Active' | 'Inactive';
+  status: 'Active' | 'Inactive' | 'Invalid';
   type: 'Inline' | 'Exact' | 'Flexible';
   assetList: string;
   combinedCapacity: string;
@@ -17,16 +18,30 @@ function isInactiveGroup(group: AssetGroup) {
   return group.status === 'Inactive';
 }
 
+function isInvalidGroup(group: AssetGroup) {
+  return group.status === 'Invalid';
+}
+
+function canApplyPriority(group: AssetGroup) {
+  return group.status === 'Active';
+}
+
+function getAssignmentMethodLabel(type: AssetGroup['type']) {
+  if (type === 'Inline') return assetGroupsCopy.form.assignmentMethod.options.consecutive.label;
+  if (type === 'Exact') return assetGroupsCopy.form.assignmentMethod.options.fixed.label;
+  return assetGroupsCopy.form.assignmentMethod.options.flexible.label;
+}
+
 export function sortAssetGroups(groups: AssetGroup[]): AssetGroup[] {
   const active = groups
-    .filter((g) => !isInactiveGroup(g))
+    .filter((g) => canApplyPriority(g))
     .sort((a, b) => a.order - b.order)
     .map((group, index) => ({ ...group, order: index + 1 }));
-  const inactive = groups
-    .filter((g) => isInactiveGroup(g))
+  const inactiveOrInvalid = groups
+    .filter((g) => isInactiveGroup(g) || isInvalidGroup(g))
     .sort((a, b) => a.order - b.order)
     .map((group) => ({ ...group, order: 0 }));
-  return [...active, ...inactive];
+  return [...active, ...inactiveOrInvalid];
 }
 
 const INITIAL_GROUPS: AssetGroup[] = [
@@ -34,7 +49,7 @@ const INITIAL_GROUPS: AssetGroup[] = [
   { id: 2, order: 2, name: 'Lanes VIP', status: 'Active', type: 'Exact', assetList: 'Lane 7, Lane 8', combinedCapacity: '10 pax' },
   { id: 3, order: 3, name: 'F&B Tables', status: 'Active', type: 'Inline', assetList: 'Table 1, Table 2, Table 3', combinedCapacity: '24 pax' },
   { id: 4, order: 4, name: 'Tables VIP', status: 'Active', type: 'Exact', assetList: 'Table 8, Table 9', combinedCapacity: '24 pax' },
-  { id: 5, order: 0, name: 'First floor lanes', status: 'Inactive', type: 'Inline', assetList: 'Lane 4, Lane 5, Lane 6', combinedCapacity: '15 pax' },
+  { id: 5, order: 0, name: 'First floor lanes', status: 'Invalid', type: 'Inline', assetList: 'Lane 4', combinedCapacity: '5 pax' },
 ];
 
 interface AssetGroupListProps {
@@ -58,7 +73,7 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
 
   // Move a group up or down by one step (active groups only)
   const moveGroup = (id: number, dir: 'up' | 'down') => {
-    const activeGroups = groups.filter((g) => !isInactiveGroup(g));
+    const activeGroups = groups.filter((g) => canApplyPriority(g));
     const idx = activeGroups.findIndex((g) => g.id === id);
     if (idx === -1) return;
     const target = dir === 'up' ? idx - 1 : idx + 1;
@@ -67,8 +82,8 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
     [next[idx], next[target]] = [next[target], next[idx]];
     // Reassign order based on new position before sorting
     const reordered = next.map((g, i) => ({ ...g, order: i + 1 }));
-    const inactive = groups.filter((g) => isInactiveGroup(g));
-    onReorder(sortAssetGroups([...reordered, ...inactive]));
+    const inactiveOrInvalid = groups.filter((g) => !canApplyPriority(g));
+    onReorder(sortAssetGroups([...reordered, ...inactiveOrInvalid]));
   };
 
   // Drag handlers — only active groups are draggable
@@ -84,7 +99,7 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const target = groups.find((g) => g.id === id);
-    if (id !== dragNode.current && target && !isInactiveGroup(target)) {
+    if (id !== dragNode.current && target && canApplyPriority(target)) {
       setDropTargetId(id);
     }
   };
@@ -94,7 +109,7 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
     const fromId = dragNode.current;
     if (!fromId || fromId === targetId) return;
 
-    const activeGroups = groups.filter((g) => !isInactiveGroup(g));
+    const activeGroups = groups.filter((g) => canApplyPriority(g));
     const fromIdx = activeGroups.findIndex((g) => g.id === fromId);
     const toIdx = activeGroups.findIndex((g) => g.id === targetId);
     if (fromIdx === -1 || toIdx === -1) return;
@@ -105,8 +120,8 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
 
     // Reassign order based on new position before sorting
     const reordered = next.map((g, i) => ({ ...g, order: i + 1 }));
-    const inactive = groups.filter((g) => isInactiveGroup(g));
-    onReorder(sortAssetGroups([...reordered, ...inactive]));
+    const inactiveOrInvalid = groups.filter((g) => !canApplyPriority(g));
+    onReorder(sortAssetGroups([...reordered, ...inactiveOrInvalid]));
     resetDrag();
   };
 
@@ -121,7 +136,7 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
       {/* Description + pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-[#536B75]">
-          Assets are the resources needed to run activities, such as rooms, equipment, or guides.
+          {assetGroupsCopy.list.description}
         </p>
         <div className="flex items-center gap-2 text-sm text-[#536B75]">
           <span>{(page - 1) * perPage + 1} – {Math.min(page * perPage, total)} of {total}</span>
@@ -139,20 +154,20 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#CCD2D8]">
-              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-14">Order</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-16">Prio</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419]">Name</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-24">Status</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-24">Type</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419]">Asset list</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-36">Combined capacity</th>
-              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-16">Actions</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-14">{assetGroupsCopy.list.columns.order}</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-16">{assetGroupsCopy.list.columns.priority}</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419]">{assetGroupsCopy.list.columns.ruleName}</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-24">{assetGroupsCopy.list.columns.status}</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-40">{assetGroupsCopy.list.columns.assignmentMethod}</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419]">{assetGroupsCopy.list.columns.assetList}</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-36">{assetGroupsCopy.list.columns.combinedCapacity}</th>
+              <th className="text-left px-4 py-3 text-sm font-semibold text-[#031419] w-16">{assetGroupsCopy.list.columns.actions}</th>
             </tr>
           </thead>
           <tbody>
             {groups.map((group) => {
-              const inactive = isInactiveGroup(group);
-              const canReorder = !inactive;
+              const hasPriority = canApplyPriority(group);
+              const canReorder = hasPriority;
               const isDragging = draggingId === group.id;
               const isDropTarget = dropTargetId === group.id;
 
@@ -202,7 +217,7 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
                             type="button"
                             onClick={() => moveGroup(group.id, 'down')}
                             className="text-[#CCD2D8] group-hover/order:text-[#536B75] hover:!text-[#282828] transition-colors disabled:opacity-30"
-                            disabled={groups.filter((g) => !isInactiveGroup(g)).at(-1)?.id === group.id}
+                            disabled={groups.filter((g) => canApplyPriority(g)).at(-1)?.id === group.id}
                             title="Move down"
                           >
                             <i className="fa-solid fa-angle-down text-xs block" />
@@ -211,12 +226,12 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-[14px] text-sm text-[#031419]">{inactive ? '–' : group.order}</td>
+                  <td className="px-3 py-[14px] text-sm text-[#031419]">{hasPriority ? group.order : '–'}</td>
                   <td className="px-3 py-[14px] text-sm font-semibold text-[#031419]">{group.name}</td>
                   <td className="px-3 py-[14px]">
                     <Badge status={group.status} />
                   </td>
-                  <td className="px-3 py-[14px] text-sm text-[#031419]">{group.type}</td>
+                  <td className="px-3 py-[14px] text-sm text-[#031419]">{getAssignmentMethodLabel(group.type)}</td>
                   <td className="px-3 py-[14px] text-sm text-[#536B75] max-w-[200px] truncate">{group.assetList}</td>
                   <td className="px-3 py-[14px] text-sm text-[#031419]">{group.combinedCapacity}</td>
                   <td className="px-3 py-[14px] relative" onClick={(e) => e.stopPropagation()}>
@@ -240,7 +255,7 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#282828] hover:bg-[#F2F3F3] transition-colors"
                           >
                             <i className="fa-solid fa-pen-to-square text-[#536B75] w-4" />
-                            Edit
+                            {assetGroupsCopy.actions.edit}
                           </button>
                           <button
                             type="button"
@@ -248,7 +263,7 @@ export function AssetGroupList({ groups, onEdit, onDelete, onReorder }: AssetGro
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
                           >
                             <i className="fa-solid fa-trash-can text-red-500 w-4" />
-                            Delete
+                            {assetGroupsCopy.actions.delete}
                           </button>
                         </div>
                       </>
